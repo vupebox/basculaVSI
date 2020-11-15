@@ -1,0 +1,193 @@
+ 
+#include <Wire.h> //Libreria I2C
+#include <LiquidCrystal_I2C.h> //Libreria LCD  //https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library
+#include <Servo.h> //Libreria Servo Motor
+#include "HX711.h"
+
+
+//Variables que puede modificar el cliente
+
+//######################## DECLARACIÓN DE PINES ##############################
+//NO USAR LOS PINES 0 y 1
+
+//LCD pins declaration (COnexión Paralela), es necesario para no dejar los pines por defecto
+
+//#define LcdSDA A1   //No son modificables debido que utilizamos el hardware
+//#define LcdSCL A0   //No son modificables debido que utilizamos el hardware
+
+
+// Pines de los Botones
+#define autoTaraBtn 12
+
+//Pines del HX7111
+#define HX711dt A0
+#define HX711sck A1
+
+
+String title1 ="     BASCULA"; //Titulo Linea 1, Máximo 16 Caracteres
+String title2 ="  DOSIFICADORA"; //Titulo Linea 1, Máximo 16 Caracteres
+
+String MessageProgramedWeight = "Peso:";  //Considere la longitud del Peso.
+String MessageCurrentWeight = "                ";// Considere la longitud del peso
+
+#define LcdWeightInt 3      //Define la cantidad de Enteros que usará la bascula
+#define LcdWeightDecimal 2  //Define la cantidad de Decimales que usará la bascula
+#define LcdWeightPosition 10 //Define la posición en que aparecerá el Peso, lo recomendable (15 - LcdWeightInt - LcdWeightDecimal)
+
+#define serialBitRate 115200  //Define la velocidad de la comunicación serial
+
+bool enableMonitor = true;    //Permite enviar los datos al monitor serial (Si se deshabilita aumenta el rendimiento)
+
+float balaceScale = 4344.59;   //Escala de la balanza, escala = (valorMedido)/(Peso conocido en kilogramos)   -46200 -(offset)  / 142.748   (422488.00 -575)/0.5 Kg
+float offsetFactor = -199; //Este es el valor obtenido si pese, cuando tiene offset
+
+//####################### VARIABLES NO EDITABLES ##########################################
+#define LcdLine1 0
+#define LcdLine2 1
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+HX711 bascule(HX711dt, HX711sck);
+
+
+float currentWeight = 0;
+
+
+void setup() 
+{
+
+  Serial.begin(serialBitRate);
+  //bascule.begin(HX711dt, HX711sck);
+  
+
+  //lcd.begin(16,2);//Definir caracteristicas de LCD
+  lcd.begin();
+  lcd.clear();
+  lcd.home();
+  lcd.print("                ");
+  lcd.setCursor(0,1);
+  lcd.print("                ");
+  lcd.backlight();//Encender back light
+  lcd.clear();
+  lcd.clear();
+  
+  sendMessage(LcdLine1,title1);
+  delay(10);
+  sendMessage(LcdLine2,title2);
+  
+  pinMode(autoTaraBtn,INPUT);
+
+  bascule.set_scale(balaceScale);
+  bascule.set_offset(offsetFactor);
+  bascule.tare();  //El peso actual es considerado Tar
+
+  delay(3000);
+  lcd.clear();
+  
+
+    lcd.setCursor(1,LcdLine1);
+    lcd.print(MessageProgramedWeight);
+    lcd.setCursor(1,LcdLine2);
+    lcd.print(MessageCurrentWeight);  
+}
+
+void sendMessage(int Line,String Msn){
+  //lcd.clear();
+  lcd.setCursor(0,Line);
+  lcd.print(Msn);  
+  Serial.println(Msn);
+}
+
+
+void loop() 
+{
+ 
+
+  ////////////////////////////// BUTTOMS /////////////////////////////////////////////////////////7
+
+  if(digitalRead(autoTaraBtn) == HIGH) {
+     bascule.tare();
+  }
+
+  //////////////////// WEIGHT ///////////////////////////////////////
+  if(bascule.is_ready()){
+    currentWeight = bascule.get_units(1);
+  }
+
+
+  ///////////////////// UPDATE LCD ////////////////////////////////////
+
+  updateCurrentWeight();
+  delay(1);
+  
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+}
+
+
+void updateCurrentWeight(){//char *string){
+  char weight[15];
+  lcd.setCursor(LcdWeightPosition,LcdLine2);
+  weightToString(currentWeight,weight,LcdWeightInt,LcdWeightDecimal);
+  lcd.print(weight);
+
+   //snprintf (string, 15, "%s", weight); //Para proposito de prueba
+  
+}
+
+void weightToString(float weight, char *var, int sizeIntVar, int sizeDecimalVar){
+  char bufferInt[sizeIntVar+1]="";
+  char bufferDecimal[sizeDecimalVar+1]="";
+  char tmp[sizeDecimalVar+sizeIntVar+3]="";
+  int decimalX;
+  
+
+    switch (sizeDecimalVar) {
+      case 1:
+         decimalX=10;
+        break;
+      case 2:
+        decimalX=100;
+        break;
+      case 3:
+         decimalX=1000;
+        break;
+      case 4:
+        decimalX=10000;
+        break;
+      default:
+        decimalX=1;
+        break;
+    }
+  
+  int entero = (int) (weight);
+  long decimal = abs((weight-entero)*decimalX); //hasta 4 decimales
+
+  int y = 0;
+
+  //get int
+  y = snprintf (tmp, sizeof(tmp), "%d", entero);  //para enteros  sizeof(bufferInt)
+
+  for(int i=0;i<sizeIntVar-y;i++){
+    bufferInt[i]=' ';  
+  }
+
+  snprintf (bufferInt, sizeof(bufferInt), "%s%s", bufferInt,tmp); //para entero
+
+  if(decimalX > 1){
+          //get decimal
+        y = snprintf (tmp, sizeof(tmp), "%d", decimal); //para decimales
+      
+        for(int i=0;i<sizeDecimalVar-y;i++){
+          bufferDecimal[i]='0';  
+        }
+      
+        snprintf (bufferDecimal, sizeof(bufferDecimal), "%s%s", bufferDecimal,tmp); //para decimales
+  }
+  
+
+  if(decimalX == 1){
+    snprintf (var, sizeof(tmp), "%s",bufferInt); //para decimales
+  }else{
+    snprintf (var, sizeof(tmp), "%s.%s",bufferInt, bufferDecimal); //para decimales
+  }
+  
+}
