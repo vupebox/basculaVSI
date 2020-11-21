@@ -30,16 +30,16 @@ String title2 ="  DOSIFICADORA"; //Titulo Linea 1, Máximo 16 Caracteres
 String MessageProgramedWeight = "Peso:";  //Considere la longitud del Peso.
 String MessageCurrentWeight = "                ";// Considere la longitud del peso
 
-#define LcdWeightInt 3      //Define la cantidad de Enteros que usará la bascula
+#define LcdWeightInt 5      //Define la cantidad de Enteros que usará la bascula
 #define LcdWeightDecimal 2  //Define la cantidad de Decimales que usará la bascula
-#define LcdWeightPosition 10 //Define la posición en que aparecerá el Peso, lo recomendable (15 - LcdWeightInt - LcdWeightDecimal)
+#define LcdWeightPosition 8 //Define la posición en que aparecerá el Peso, lo recomendable (15 - LcdWeightInt - LcdWeightDecimal)
 
 #define serialBitRate 115200  //Define la velocidad de la comunicación serial
 
 bool enableMonitor = true;    //Permite enviar los datos al monitor serial (Si se deshabilita aumenta el rendimiento)
 
 float balaceScale = 4344.59;   //Escala de la balanza, escala = (valorMedido)/(Peso conocido en kilogramos)   -46200 -(offset)  / 142.748   (422488.00 -575)/0.5 Kg
-float offsetFactor = -199; //Este es el valor obtenido si pese, cuando tiene offset
+float offsetFactor = -199.09; //Este es el valor obtenido si pese, cuando tiene offset
 
 //####################### VARIABLES NO EDITABLES ##########################################
 #define LcdLine1 0
@@ -153,13 +153,17 @@ void weightToString(float weight, char *var, int sizeIntVar, int sizeDecimalVar)
       case 4:
         decimalX=10000;
         break;
+      case 5:
+        decimalX=100000;
+        break;
+      
       default:
         decimalX=1;
         break;
     }
   
   int entero = (int) (weight);
-  long decimal = abs((weight-entero)*decimalX); //hasta 4 decimales
+  long decimal = abs((weight-entero)*decimalX); //hasta 5 decimales
 
   int y = 0;
 
